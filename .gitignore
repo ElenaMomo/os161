@@ -7,9 +7,11 @@
 *.ko
 *.so
 
-.DS_Store
+*.DS_Store
+*._*
 
-kern/conf/
-kern/compile/
+src/kern/conf/
+src/kern/compile/
 toolbuild/
 tools/
+root/
