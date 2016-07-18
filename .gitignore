@@ -6,3 +6,10 @@
 *.s
 *.ko
 *.so
+
+.DS_Store
+
+kern/conf/
+kern/compile/
+toolbuild/
+tools/
