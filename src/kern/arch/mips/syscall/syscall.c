@@ -36,7 +36,7 @@
 #include <current.h>
 #include <syscall.h>
 
-
+#include <copyinout.h>
 /*
  * System call dispatcher.
  *
@@ -99,24 +99,65 @@ syscall(struct trapframe *tf)
 
 	retval = 0;
 
+	__i64 int64_retval;
+	int usrarg1;
+
 	switch (callno) {
-	    case SYS_reboot:
-		err = sys_reboot(tf->tf_a0);
-		break;
+		case SYS_reboot:
+			err = sys_reboot(tf->tf_a0);
+			break;
 
-	    case SYS___time:
-		err = sys___time((userptr_t)tf->tf_a0,
-				 (userptr_t)tf->tf_a1);
-		break;
+		case SYS___time:
+			err = sys___time((userptr_t)tf->tf_a0,
+					 (userptr_t)tf->tf_a1);
+			break;
 
-	    /* Add stuff here */
+		/* Add stuff here */
+		case SYS_open:
+			err = sys_open((const char *)tf->tf_a0,
+					   (int)tf->tf_a1,
+					   (int *)&retval);
+			break;
 
-	    default:
-		kprintf("Unknown syscall %d\n", callno);
-		err = ENOSYS;
-		break;
+		case SYS_write:
+			err = sys_write((int)tf->tf_a0,
+					(void *)tf->tf_a1,
+					(size_t)tf->tf_a2,
+					(ssize_t *)&retval);
+			break;
+
+		case SYS_close:
+			err = sys_close((int)tf->tf_a0);
+			break;
+
+		case SYS_read:
+			err = sys_read((int)tf->tf_a0,
+					   (void *)tf->tf_a1,
+					   (size_t)tf->tf_a2,
+					   (ssize_t *)&retval);
+			break;
+
+		case SYS_lseek:
+			copyin((const_userptr_t)(tf->tf_sp + 16), &usrarg1, 4);
+			err = sys_lseek((int)tf->tf_a0,
+					(off_t)(*((off_t *)&tf->tf_a2)),
+					(int)usrarg1,
+					(off_t *)&int64_retval);
+			retval = int64_retval >> 32;
+			tf->tf_v1 = (unsigned int)int64_retval - retval;
+			break;
+
+		case SYS_dup2:
+			err = sys_dup2((int)tf->tf_a0,
+					   (int)tf->tf_a1,
+					   (int *)&retval);
+			break;
+
+		default:
+			kprintf("Unknown syscall %d\n", callno);
+			err = ENOSYS;
+			break;
 	}
-
 
 	if (err) {
 		/*
