@@ -27,7 +27,8 @@ int sys_open(const char *filename, int flags, int *fd){
 		return EFAULT;
 	}
 
-	if (flags > 0777 || flags < 0) {
+	/* Open mode check. Not fully implemented yet. TBD */
+	if (flags > 128 || flags < 0) {
 		return EINVAL;
 	}
 
@@ -36,7 +37,9 @@ int sys_open(const char *filename, int flags, int *fd){
 		return result;
 
 	fdes = fd_init(v, flags, 0);
-	*fd = ftab_add(curthread->filtab, fdes);
+	result = ftab_add(curthread->filtab, fdes, fd);
+	if(result)
+		return result;
 
 	return 0;
 }

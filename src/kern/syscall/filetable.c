@@ -29,7 +29,7 @@ struct fildes *fd_init(struct vnode *v, int flag, off_t offset){
 	return fd;
 }
 
-struct array *ftab_init(){
+struct array *ftab_init(void){
 	struct vnode *v;
 	struct fildes *fdes;
 	struct array *OFtable;
@@ -53,13 +53,17 @@ struct array *ftab_init(){
 	return OFtable;
 }
 
-int ftab_add(struct array *OFtable, struct fildes *fd) {
+int ftab_add(struct array *OFtable, struct fildes *fd, int *i) {
 	unsigned int index;
 
 	for(index = 3; ftab_get(OFtable, index) != NULL; index++);
-	ftab_set(OFtable, fd, index);
+	if(index >= 100)
+		return EMFILE;
 
-	return index;
+	ftab_set(OFtable, fd, index);
+	*i = index;
+
+	return 0;
 }
 
 struct fildes *ftab_get(struct array *OFtable, int fd) {
