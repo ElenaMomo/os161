@@ -21,11 +21,4 @@ struct fildes{
     off_t filoff;
 };
 
-int     open(const char *filename, int flags);
-ssize_t read(int filehandle, void *buf, size_t size);
-ssize_t write(int filehandle, const void *buf, size_t size);
-off_t   lseek(int filehandle, off_t pos, int code);
-int     close(int filehandle);
-int     dup2(int filehandle, int newhandle);
-
 #endif /* _FILE_H_ */
