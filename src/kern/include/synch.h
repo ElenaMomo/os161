@@ -119,9 +119,9 @@ struct cv {
         char *cv_name;
         // add what you need here
         // (don't forget to mark things volatile as needed)
-        struct lock lk;
         struct wchan *cv_wchan;
         struct spinlock cv_lock;
+        volatile int cv_wcount;
 };
 
 struct cv *cv_create(const char *name);
