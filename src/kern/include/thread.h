@@ -40,8 +40,6 @@
 #include <spinlock.h>
 #include <threadlist.h>
 #include <file.h>
-#include <filetable.h>
-#include <array.h>
 
 struct cpu;
 

@@ -37,6 +37,9 @@
 #include <syscall.h>
 
 #include <copyinout.h>
+#include <addrspace.h>
+
+#include <current.h>
 /*
  * System call dispatcher.
  *
@@ -103,6 +106,14 @@ syscall(struct trapframe *tf)
 	int usrarg1;
 
 	switch (callno) {
+		case SYS_fork:
+			err = sys_fork(tf, curthread->t_proc, (pid_t *)&retval);
+			break;
+
+		case SYS_getpid:
+			err = sys_getpid((int *)&retval);
+			break;
+
 		case SYS_reboot:
 			err = sys_reboot(tf->tf_a0);
 			break;
@@ -149,8 +160,21 @@ syscall(struct trapframe *tf)
 
 		case SYS_dup2:
 			err = sys_dup2((int)tf->tf_a0,
-					   (int)tf->tf_a1,
-					   (int *)&retval);
+						   (int)tf->tf_a1,
+					   	   (int *)&retval);
+			break;
+
+		case SYS_remove:
+			err = sys_remove((char *)tf->tf_a0);
+			break;
+
+		case SYS_mkdir:
+			err = sys_mkdir((char *)tf->tf_a0,
+							(mode_t)tf->tf_a1);
+			break;
+
+		case SYS_rmdir:
+			err = sys_rmdir((char *)tf->tf_a0);
 			break;
 
 		default:
@@ -198,5 +222,21 @@ syscall(struct trapframe *tf)
 void
 enter_forked_process(struct trapframe *tf)
 {
-	(void)tf;
+	struct trapframe ntf;
+	struct addrspace *cas = (struct addrspace *)tf->tf_a3;
+
+	/* Copy Address Space */
+	proc_setas(cas);
+	as_activate();
+
+	memcpy(&ntf, tf, sizeof(struct trapframe));
+	ntf.tf_epc += 4;
+	ntf.tf_v0 = 0; // Successful syscall
+	ntf.tf_a3 = 0; // return pid = 0 for child
+
+	// kprintf("%x", ntf.tf_epc);
+
+	KASSERT(curthread->t_curspl == 0);
+	KASSERT(curthread->t_iplhigh_count == 0);
+	mips_usermode(&ntf);
 }

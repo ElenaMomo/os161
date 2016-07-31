@@ -32,6 +32,7 @@
 
 #include <file.h>
 #include <cdefs.h> /* for __DEAD */
+#include <proc.h>
 struct trapframe; /* from <machine/trapframe.h> */
 
 /*
@@ -43,6 +44,10 @@ void syscall(struct trapframe *tf);
 /*
  * Support functions.
  */
+
+/* Process related syscalls */
+int sys_getpid(int *retval);
+int sys_fork(struct trapframe *ptf, struct proc *pproc, pid_t *pid);
 
 /* Helper for fork(). You write this. */
 void enter_forked_process(struct trapframe *tf);
@@ -66,5 +71,8 @@ int sys_close(int fd);
 int sys_read(int fd, void *buf, size_t size, ssize_t *readsize);
 int sys_lseek(int fd, off_t pos, int code, off_t *newpos);
 int sys_dup2(int oldfd, int newfd, int *retval);
+int sys_remove(char *pathname);
+int sys_mkdir(char *pathname, mode_t mode);
+int sys_rmdir(char *pathname);
 
 #endif /* _SYSCALL_H_ */

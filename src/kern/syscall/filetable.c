@@ -29,6 +29,16 @@ struct fildes *fd_init(struct vnode *v, int flag, off_t offset){
 	return fd;
 }
 
+int fd_copy(struct fildes *src, struct fildes **dst){
+
+	*dst = kmalloc(sizeof(struct fildes));
+	if (*dst == NULL) {
+		return ENOMEM;
+	}
+	memcpy(dst, src, sizeof(struct fildes));
+	return 0;
+}
+
 struct array *ftab_init(void){
 	struct vnode *v;
 	struct fildes *fdes;
@@ -77,4 +87,23 @@ void ftab_remove(struct array *OFtable, int fd) {
 void ftab_set(struct array *OFtable, struct fildes *fd, 
 			  int index) {
 	array_set(OFtable, index, fd);
+}
+
+void ftab_copy(struct array *oldtab, struct array **newtab){
+	struct fildes *fd;
+
+	if(oldtab == NULL){
+		return;
+	}
+
+	*newtab = ftab_init();
+
+	for(unsigned int i = 2;
+		(fd = ftab_get(oldtab, i)) != NULL;
+		i++){
+		// v = array_get(oldtab, i);
+		ftab_set(*newtab, (void *)fd, i);
+
+		VOP_INCREF(fd->vn);
+	}
 }

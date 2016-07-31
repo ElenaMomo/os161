@@ -50,6 +50,7 @@
 #include <addrspace.h>
 #include <mainbus.h>
 #include <vnode.h>
+#include <file.h>
 
 
 /* Magic number used as a guard value on kernel thread stacks. */
@@ -528,6 +529,8 @@ thread_fork(const char *name,
 		thread_destroy(newthread);
 		return result;
 	}
+
+	// ftab_copy(curthread->filtab, &newthread->filtab);
 
 	/*
 	 * Because new threads come out holding the cpu runqueue lock
