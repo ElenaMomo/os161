@@ -43,12 +43,12 @@ int ftab_init(struct array **ftab);
 
 int ftab_add(struct array *ftab, struct fdesc *fd, int *i);
 
-int ftab_get(struct array *ftab, int index, struct fdesc *fd);
+int ftab_get(struct array *ftab, int index, struct fdesc **fd);
 
 int ftab_remove(struct array *ftab, int fd, struct fdesc *oldfd);
 
 int ftab_set(struct array *ftab, struct fdesc *fd, 
-         int index, struct fdesc *oldfd);
+         int index, struct fdesc **oldfd);
 
 int ftab_copy(struct array *oldtab, struct array **newtab);
 

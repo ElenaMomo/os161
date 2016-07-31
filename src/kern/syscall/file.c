@@ -109,6 +109,7 @@ ftab_init(struct array **ftab)
 
 	/* Attach stdout/stderr to file table */
 	result = ftab_set(*ftab, fd, 1, NULL);
+
 	if (result) {
 		return result;
 	}
@@ -116,11 +117,6 @@ ftab_init(struct array **ftab)
 	if (result) {
 		return result;
 	}
-	struct fdesc *tfd;
-	ftab_get(curthread->filtab, 2, tfd);
-	kprintf("in:%p\n", tfd);
-	// KASSERT(vnode_check(tfd->vn, "write"));
-	// kprintf("in:%p\n", ftab);
 
 	return 0;
 }
@@ -133,7 +129,7 @@ ftab_add(struct array *ftab, struct fdesc *fd, int *i)
 	int result;
 
 	for(index = 3; index < OPEN_MAX; index++){
-		result = ftab_get(ftab, index, tmpfd);
+		result = ftab_get(ftab, index, &tmpfd);
 		if (result) {
 			return result;
 		}
@@ -143,19 +139,19 @@ ftab_add(struct array *ftab, struct fdesc *fd, int *i)
 	if(index >= OPEN_MAX)
 		return EMFILE;
 
-	ftab_set(ftab, fd, index, tmpfd);
+	ftab_set(ftab, fd, index, &tmpfd);
 	*i = index;
 
 	return 0;
 }
 
 int
-ftab_get(struct array *ftab, int index, struct fdesc *fd)
+ftab_get(struct array *ftab, int index, struct fdesc **fd)
 {
 	if (index >= OPEN_MAX) {
 		return EBADF;
 	}
-	fd = array_get(ftab, index);
+	*fd = array_get(ftab, index);
 	return 0;
 }
 
@@ -165,20 +161,21 @@ ftab_remove(struct array *ftab, int fd, struct fdesc *oldfd)
 	if (fd >= OPEN_MAX) {
 		return EBADF;
 	}
-	return ftab_set(ftab, NULL, fd, oldfd);
+	return ftab_set(ftab, NULL, fd, &oldfd);
 }
 
 int
 ftab_set(struct array *ftab, struct fdesc *fd, 
-		 int index, struct fdesc *oldfd) {
+		 int index, struct fdesc **oldfd) {
 	if (index >= OPEN_MAX) {
 		return EBADF;
 	}
 
 	if (oldfd != NULL) {
-		oldfd = array_get(ftab, index);
+		*oldfd = array_get(ftab, index);
 	}
-	array_set(ftab, index, fd);
+	// array_set(ftab, index, fd);
+	ftab->v[index] = fd;
 	return 0;
 }
 
@@ -257,7 +254,7 @@ sys_write(int fd, void *buf, size_t size, ssize_t *written)
 
 	KASSERT(curthread->filtab != NULL);
 
-	result = ftab_get(curthread->filtab, fd, fdes);
+	result = ftab_get(curthread->filtab, fd, &fdes);
 	if (result) {
 		return result;
 	}
@@ -281,7 +278,7 @@ sys_close(int fd)
 	struct fdesc *fdes;
 	int result;
 
-	result = ftab_get(curthread->filtab, fd, fdes);
+	result = ftab_get(curthread->filtab, fd, &fdes);
 	if (result) {
 		return result;
 	}
@@ -302,7 +299,7 @@ sys_read(int fd, void *buf, size_t size, ssize_t *readsize)
 	off_t foff;
 	int result;
 
-	result = ftab_get(curthread->filtab, fd, fdes);
+	result = ftab_get(curthread->filtab, fd, &fdes);
 	if (result) {
 		return result;
 	}
@@ -325,7 +322,7 @@ sys_lseek(int fd, off_t pos, int code, off_t *newpos)
 	struct fdesc * fdes;
 	int result;
 
-	result = ftab_get(curthread->filtab, fd, fdes);
+	result = ftab_get(curthread->filtab, fd, &fdes);
 	if (result) {
 		return result;
 	}
@@ -353,7 +350,7 @@ sys_dup2(int oldfd, int newfd, int *retval)
 	int result;
 	struct fdesc *tmpfd;
 
-	result = ftab_get(curthread->filtab, newfd, tmpfd);
+	result = ftab_get(curthread->filtab, newfd, &tmpfd);
 	if (result) {
 		return result;
 	}
@@ -362,7 +359,7 @@ sys_dup2(int oldfd, int newfd, int *retval)
 		fd_destroy(&tmpfd);
 	}
 
-	result = ftab_get(curthread->filtab, oldfd, tmpfd);
+	result = ftab_get(curthread->filtab, oldfd, &tmpfd);
 	if (result) {
 		return result;
 	}	
@@ -381,9 +378,6 @@ sys_remove(char *pathname)
 {
 	int result = vfs_remove((char *)pathname);
 
-	kprintf("result = %d", result);
-	if(result)
-		return -1;
 	return result;
 }
 

@@ -46,6 +46,8 @@
 #include <test.h>
 
 #include <file.h>
+#include <array.h>
+#include <vnode.h>
 /*
  * Load program "progname" and start running it in usermode.
  * Does not return except on error.
@@ -103,11 +105,6 @@ runprogram(char *progname)
 	if (result) {
 		return result;
 	}
-	// kprintf("%p\n", curthread->filtab);
-	struct fdesc *fd;
-	ftab_get(curthread->filtab, 2, fd);
-	kprintf("out:%p", fd);
-	// kprintf("out:%p\n", &curthread->filtab);
 
 	/* Warp to user mode. */
 	enter_new_process(0 /*argc*/, NULL /*userspace addr of argv*/,
