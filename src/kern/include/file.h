@@ -15,12 +15,14 @@
  * Put your function declarations and data types here ...
  */
 #include <array.h>
+#include <synch.h>
 
 struct fdesc{
     struct vnode *vn;
     int flags;
     off_t filoff;
-    int refcounter;
+    int refcount;
+    struct lock *fd_lock;
 };
 
 /*
@@ -29,9 +31,13 @@ struct fdesc{
 
 int fd_create(struct vnode *v, int flag, off_t offset, struct fdesc **fd);
 
-void fd_destroy(struct fdesc **fd);
+void fd_destroy(struct fdesc *fd);
 
 int fd_copy(struct fdesc *src, struct fdesc **dst);
+
+void fd_decref(struct fdesc **fdesc);
+
+void fd_incref(struct fdesc *fdesc);
 
 /*
  * File table manipulating functions
@@ -51,8 +57,6 @@ int ftab_set(struct array *ftab, struct fdesc *fd,
          int index, struct fdesc **oldfd);
 
 int ftab_copy(struct array *oldtab, struct array **newtab);
-
-void fd_decref(struct fdesc *fdesc);
 
 /*
  * File related system calls

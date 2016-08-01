@@ -69,9 +69,5 @@ int sys_fork(struct trapframe *ptf, struct proc *pproc, pid_t *pid){
 		return result;
 	}
 
-	// kprintf("%x", ptf->tf_epc);
-
-	// splx(spl);
-
 	return 0;
 }

@@ -530,7 +530,7 @@ thread_fork(const char *name,
 		return result;
 	}
 
-	// ftab_copy(curthread->filtab, &newthread->filtab);
+	ftab_copy(curthread->filtab, &newthread->filtab);
 
 	/*
 	 * Because new threads come out holding the cpu runqueue lock

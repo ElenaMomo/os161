@@ -234,9 +234,8 @@ enter_forked_process(struct trapframe *tf)
 	ntf.tf_v0 = 0; // Successful syscall
 	ntf.tf_a3 = 0; // return pid = 0 for child
 
-	// kprintf("%x", ntf.tf_epc);
-
 	KASSERT(curthread->t_curspl == 0);
 	KASSERT(curthread->t_iplhigh_count == 0);
+
 	mips_usermode(&ntf);
 }
