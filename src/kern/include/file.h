@@ -14,7 +14,6 @@
 /*
  * Put your function declarations and data types here ...
  */
-#include <array.h>
 #include <synch.h>
 
 struct fdesc{

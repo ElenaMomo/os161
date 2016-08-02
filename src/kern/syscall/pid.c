@@ -19,9 +19,68 @@
 #include <spinlock.h>
 #include <proc.h>
 #include <spl.h>
+#include <pid.h>
+#include <kern/wait.h>
 
-int sys_getpid(int *retval){
-	*retval = (int)curthread->t_proc->pid;
+static struct process *pidtable[PID_MAX];
+
+int process_init(int pid, struct proc *proc){
+	struct process *p;
+
+	p = kmalloc(sizeof(struct process));
+	if (p == NULL) {
+		return ENOMEM;
+	}
+	p->ppid = curproc->pid;
+	p->pid_lock = lock_create("pid_lock");
+	p->status = WUNTRACED;
+	p->exitcode = 0;
+	p->proc = proc;
+
+	pidtable[pid] = p;
+
+	lock_acquire(p->pid_lock);
+
+	return 0;
+}
+
+int process_destroy(pid_t pid){
+	kfree(pidtable[pid]);
+	pidtable[pid] = NULL;
+
+	return 0;
+}
+
+int pid_alloc(struct proc *proc){
+	int result;
+
+	for(int i = PID_MIN; i < PID_MAX; i++){
+		if (pidtable[i] == NULL) {
+			result = process_init(i, proc);
+			if (result) {
+				return result;
+			}
+			proc->pid = (pid_t) i;
+			break;
+		}
+	}
+
+	return 0;
+}
+
+/* PID related system calls */
+
+int sys__exit(int exitcode){
+	pid_t pid = curproc->pid;
+	struct process *process;
+
+	process = pidtable[pid];
+	process->status = WNOHANG;
+	process->exitcode = _MKWAIT_EXIT(exitcode);
+	lock_release(process->pid_lock);
+
+	
+
 	return 0;
 }
 
@@ -43,17 +102,18 @@ int sys_fork(struct trapframe *ptf, struct proc *pproc, pid_t *pid){
 
 	result = as_copy(curproc->p_addrspace, &cas);
 	if (result) {
-		kfree(curproc);
+		proc_destroy(cproc);
 		return result;
 	}
 
 	KASSERT(cas != NULL);
 
 	/* Allocate PID */
-	cproc->pid = 1;
 	*pid = cproc->pid;
 
-	/* Copy trapframe for child proc*/
+	/* Make a copy of trapframe, so that two processes would not 
+	 * have race condition.
+	 */
 	ctf = kmalloc(sizeof(struct trapframe));
 	bzero(ctf, sizeof(struct trapframe));
 	memcpy(ctf, (const void *)ptf, sizeof(struct trapframe));
@@ -69,5 +129,10 @@ int sys_fork(struct trapframe *ptf, struct proc *pproc, pid_t *pid){
 		return result;
 	}
 
+	return 0;
+}
+
+int sys_getpid(pid_t *retval){
+	*retval = curproc->pid;
 	return 0;
 }

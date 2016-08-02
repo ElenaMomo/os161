@@ -48,6 +48,7 @@
 #include <current.h>
 #include <addrspace.h>
 #include <vnode.h>
+#include <pid.h>
 
 /*
  * The process for the kernel; this holds all the kernel-only threads.
@@ -217,6 +218,8 @@ proc_create_runprogram(const char *name)
 		newproc->p_cwd = curproc->p_cwd;
 	}
 	spinlock_release(&curproc->p_lock);
+
+	pid_alloc(newproc);
 
 	return newproc;
 }

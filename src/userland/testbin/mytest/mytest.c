@@ -6,13 +6,4 @@
 
 int main(){
 
-    printf("hahahahahahahah\n");
-
-    int i = fork();
-    if(i){
-        printf("parent\n");
-    }
-    else{
-        printf("child\n");
-    }
 }

@@ -46,8 +46,10 @@ void syscall(struct trapframe *tf);
  */
 
 /* Process related syscalls */
-int sys_getpid(int *retval);
 int sys_fork(struct trapframe *ptf, struct proc *pproc, pid_t *pid);
+int sys__exit(int exitcode);
+int sys_waitpid(struct trapframe *tf);
+int sys_getpid(int *retval);
 
 /* Helper for fork(). You write this. */
 void enter_forked_process(struct trapframe *tf);
