@@ -101,7 +101,7 @@ runprogram(char *progname)
 	}
 
 	/* Define open file table */
-	result = ftab_init(&curthread->filtab);
+	result = ftab_init(curthread->filtab);
 	if (result) {
 		return result;
 	}

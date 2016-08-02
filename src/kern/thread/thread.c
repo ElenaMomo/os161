@@ -155,7 +155,7 @@ thread_create(const char *name)
 	thread->t_iplhigh_count = 1; /* corresponding to t_curspl */
 
 	/* If you add to struct thread, be sure to initialize here */
-
+	bzero(thread->filtab, sizeof(struct fdesc *) * OPEN_MAX);
 	return thread;
 }
 
@@ -530,7 +530,7 @@ thread_fork(const char *name,
 		return result;
 	}
 
-	ftab_copy(curthread->filtab, &newthread->filtab);
+	ftab_copy(curthread->filtab, newthread->filtab);
 
 	/*
 	 * Because new threads come out holding the cpu runqueue lock

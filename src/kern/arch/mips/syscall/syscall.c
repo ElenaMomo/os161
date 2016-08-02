@@ -223,11 +223,14 @@ void
 enter_forked_process(struct trapframe *tf)
 {
 	struct trapframe ntf;
-	struct addrspace *cas = (struct addrspace *)tf->tf_a3;
+	struct addrspace *cas = (struct addrspace *)tf->tf_a0;
 
+	KASSERT(cas != NULL);
 	/* Copy Address Space */
 	proc_setas(cas);
 	as_activate();
+
+	KASSERT(curproc->p_addrspace != NULL);
 
 	memcpy(&ntf, tf, sizeof(struct trapframe));
 	ntf.tf_epc += 4;

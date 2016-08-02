@@ -107,7 +107,7 @@ struct thread {
 	 */
 
 	/* add more here as needed */
-	struct array *filtab;
+	struct fdesc *filtab[OPEN_MAX];
 };
 
 /*

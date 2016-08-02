@@ -77,80 +77,72 @@ void fd_incref(struct fdesc *fdesc){
  * File table manipulating functions
  */
 
-int ftab_create(struct array **ftab){
-	*ftab = array_create();
-	if (ftab == NULL) {
-		return ENOMEM;
-	}
-	array_setsize(*ftab, OPEN_MAX);
-	array_preallocate(*ftab, OPEN_MAX);
-
-	return 0;
-}
-
 int
-ftab_init(struct array **ftab)
+ftab_init(struct fdesc **ftab)
 {
-	struct vnode *vr;
-	struct vnode *vw;
-	struct fdesc *fdr;
-	struct fdesc *fdw;
+	struct vnode *v;
+	struct fdesc *fd;
 	int result;
-
-	/* Create file table */
-	result = ftab_create(ftab);
-	if (result) {
-		return result;
-	}
+	int permflag = 0664;
+	off_t offset;
+	struct stat stat;
 
 	/* Open console as stdin */
-	result = vfs_open((char *)"con:", O_RDONLY, 0664, &vr);
-	if (result) {
-		array_destroy(*ftab);
-		return result;
-	}
+	// result = vfs_open((char *)"con:", O_RDONLY, permflag, &vr);
+	// if (result) {
+	// 	return result;
+	// }
 
-	result = fd_create(vr, 0664, 0, &fdr);
-	if (result) {
-		vfs_close(vr);
-		array_destroy(*ftab);
-		return result;
-	}
+
+	// result = fd_create(v, permflag, offset, &fd);
+	// if (result) {
+	// 	vfs_close(v);
+	// 	ftab_destroy(ftab);
+	// 	return result;
+	// }
+
 
 	/* Attach stdout/stderr to file table */
-	result = ftab_set(*ftab, fdr, 0, NULL);
+	// result = ftab_set(*ftab, fd, 0, NULL);
 
 	/* Open console as stdout and stderr */
-	result = vfs_open((char *)"con:", O_WRONLY, 0664, &vw);
+	result = vfs_open((char *)"con:", O_WRONLY, permflag, &v);
 	if (result) {
-		array_destroy(*ftab);
+		vfs_close(v);
 		return result;
 	}
 
-	result = fd_create(vw, 0664, 0, &fdw);
+	result = VOP_STAT(v, &stat);
 	if (result) {
-		vfs_close(vw);
-		array_destroy(*ftab);
+		vfs_close(v);
+	}
+	offset = stat.st_size;
+
+	result = fd_create(v, permflag, offset, &fd);
+	if (result) {
+		vfs_close(v);
 		return result;
 	}
 
 	/* Attach stdout/stderr to file table */
-	result = ftab_set(*ftab, fdw, 1, NULL);
+	result = ftab_set(ftab, fd, 1, NULL);
+	if (result) {
+		fd_destroy(fd);
+		return result;
+	}
 
+	result = ftab_set(ftab, fd, 2, NULL);
 	if (result) {
+		fd_destroy(fd);
 		return result;
 	}
-	result = ftab_set(*ftab, fdw, 2, NULL);
-	if (result) {
-		return result;
-	}
-	fd_incref(fdw);
+	fd_incref(fd);
 
 	return 0;
 }
 
 int
-ftab_add(struct array *ftab, struct fdesc *fd, int *i)
+ftab_add(struct fdesc **ftab, struct fdesc *fd, int *i)
 {
 	unsigned int index;
 	struct fdesc *tmpfd;
@@ -174,17 +166,18 @@ ftab_add(struct array *ftab, struct fdesc *fd, int *i)
 }
 
 int
-ftab_get(struct array *ftab, int index, struct fdesc **fd)
+ftab_get(struct fdesc **ftab, int index, struct fdesc **fd)
 {
-	if (index >= OPEN_MAX) {
+	if (index >= OPEN_MAX || ftab[index] == NULL) {
 		return EBADF;
 	}
-	*fd = array_get(ftab, index);
+
+	*fd = ftab[index];
 	return 0;
 }
 
 int
-ftab_remove(struct array *ftab, int fd, struct fdesc *oldfd)
+ftab_remove(struct fdesc **ftab, int fd, struct fdesc *oldfd)
 {
 	if (fd >= OPEN_MAX) {
 		return EBADF;
@@ -193,49 +186,35 @@ ftab_remove(struct array *ftab, int fd, struct fdesc *oldfd)
 }
 
 int
-ftab_set(struct array *ftab, struct fdesc *fd, 
+ftab_set(struct fdesc **ftab, struct fdesc *fd, 
 		 int index, struct fdesc **oldfd) {
+	int result;
+
 	if (index >= OPEN_MAX) {
 		return EBADF;
 	}
 
 	if (oldfd != NULL) {
-		*oldfd = array_get(ftab, index);
+		result = ftab_get(ftab, index, oldfd);
+		if (result) {
+			return result;
+		}
 	}
-	array_set(ftab, index, fd);
-	// ftab->v[index] = fd;
+
+	ftab[index] = fd;
 	return 0;
 }
 
 int
-ftab_copy(struct array *oldtab, struct array **newtab)
+ftab_copy(struct fdesc **oldtab, struct fdesc **newtab)
 {
-	struct fdesc *fd;
-	int result;
-
-
-	if (oldtab == NULL) {
-		return 0;
-	}
-	ftab_create(newtab);
-
-	for(unsigned i = 0; i < OPEN_MAX; i++){
-		result = ftab_get(oldtab, i, &fd);
-		if (result) {
-			for(unsigned j = 0; j < i - 1; j++){
-				ftab_get(oldtab, j, &fd);
-				fd_decref(&fd);
-			}
-			kfree(newtab);
-			return result;
+	for(unsigned i = 0; 
+		i < OPEN_MAX; i++){
+		if(oldtab[i]){
+			newtab[i] = oldtab[i];
+			fd_incref(newtab[i]);
 		}
-		if ( fd == NULL )
-			continue;
-		fd_incref(fd);
-		ftab_set(*newtab, fd, i, NULL);
-
 	}
-
 	return 0;
 }
 
@@ -253,7 +232,7 @@ sys_open(const char *filename, int flags, int *fd)
 	struct fdesc *fdes;
 	int result;
 	off_t off;
-	struct stat *stat;
+	struct stat stat;
 
 	if (!filename) {
 		return EFAULT;
@@ -272,19 +251,18 @@ sys_open(const char *filename, int flags, int *fd)
 
 	/* Set offset to end of file if O_APPEND is set */
 	if ( flags & O_APPEND) {	
-		result = VOP_STAT(v, stat);
+		result = VOP_STAT(v, &stat);
 		if (result) {
 			vfs_close(v);
 			return result;
 		}
-		off = stat->st_size;
+		off = stat.st_size;
 	}
-	off = 0;
+	else off = 0;
 
 	/* Create file descriptor */
 	result = fd_create(v, flags, 0, &fdes);
 	if (result) {
-		kfree(stat);
 		vfs_close(v);
 		return result;
 	}
@@ -320,9 +298,9 @@ sys_write(int fd, void *buf, size_t size, ssize_t *written)
 		return result;
 	}
 
-	if (!(fdes->flags & O_WRONLY)){
-		return EBADF;
-	}
+	// if (!(fdes->flags & O_WRONLY)){
+	// 	return EBADF;
+	// }
 
 	lock_acquire(fdes->fd_lock);
 	v = fdes->vn;

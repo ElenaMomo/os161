@@ -31,11 +31,15 @@ int sys_fork(struct trapframe *ptf, struct proc *pproc, pid_t *pid){
 	struct addrspace *cas;
 	int result;
 
-	cproc = kmalloc(sizeof(struct proc));
+	KASSERT(pproc == curproc);
+
+	// cproc = kmalloc(sizeof(struct proc));
+	cproc = proc_create_runprogram("child");
 	if (cproc == NULL){
 		return ENOMEM;
 	}
-	spinlock_init(&cproc->p_lock);
+
+	KASSERT(curproc->p_addrspace != NULL);
 
 	result = as_copy(curproc->p_addrspace, &cas);
 	if (result) {
@@ -43,9 +47,7 @@ int sys_fork(struct trapframe *ptf, struct proc *pproc, pid_t *pid){
 		return result;
 	}
 
-	/* Copy CWD */
-	cproc->p_cwd = pproc->p_cwd;
-	VOP_INCREF(cproc->p_cwd);
+	KASSERT(cas != NULL);
 
 	/* Allocate PID */
 	cproc->pid = 1;
@@ -56,14 +58,12 @@ int sys_fork(struct trapframe *ptf, struct proc *pproc, pid_t *pid){
 	bzero(ctf, sizeof(struct trapframe));
 	memcpy(ctf, (const void *)ptf, sizeof(struct trapframe));
 
-	ctf->tf_a0 = (uint32_t)pproc->p_addrspace;
-	ctf->tf_a1 = (uint32_t)curproc;
-	ctf->tf_a2 = (uint32_t)cas;
+	ctf->tf_a0 = (uint32_t)cas;
 
 	result = thread_fork(curthread->t_name,
 				cproc,
 				(void *)enter_forked_process,
-				(void *)ctf,1);
+				(void *)ctf, 0);
 	if (result) {
 		proc_destroy(cproc);
 		return result;

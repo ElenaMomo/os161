@@ -43,20 +43,18 @@ void fd_incref(struct fdesc *fdesc);
  * File table manipulating functions
  */
 
-int ftab_create(struct array **ftab);
+int ftab_init(struct fdesc **ftab);
 
-int ftab_init(struct array **ftab);
+int ftab_add(struct fdesc **ftab, struct fdesc *fd, int *i);
 
-int ftab_add(struct array *ftab, struct fdesc *fd, int *i);
+int ftab_get(struct fdesc **ftab, int index, struct fdesc **fd);
 
-int ftab_get(struct array *ftab, int index, struct fdesc **fd);
+int ftab_remove(struct fdesc **ftab, int fd, struct fdesc *oldfd);
 
-int ftab_remove(struct array *ftab, int fd, struct fdesc *oldfd);
-
-int ftab_set(struct array *ftab, struct fdesc *fd, 
+int ftab_set(struct fdesc **ftab, struct fdesc *fd, 
          int index, struct fdesc **oldfd);
 
-int ftab_copy(struct array *oldtab, struct array **newtab);
+int ftab_copy(struct fdesc **oldtab, struct fdesc **newtab);
 
 /*
  * File related system calls
