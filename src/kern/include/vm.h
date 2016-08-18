@@ -36,6 +36,17 @@
  * You'll probably want to add stuff here.
  */
 
+enum fte_state{
+    FREE,
+    DIRTY,
+    CLEAN,
+    FIXED
+};
+
+struct frame_table_entry{
+    enum fte_state state;
+};
+
 
 #include <machine/vm.h>
 
@@ -47,11 +58,13 @@
 
 /* Initialization function */
 void vm_bootstrap(void);
+void frametable_init(void);
 
 /* Fault handling function called by trap code */
 int vm_fault(int faulttype, vaddr_t faultaddress);
 
 /* Allocate/free kernel heap pages (called by kmalloc/kfree) */
+void frame_table_init(void);
 vaddr_t alloc_kpages(unsigned npages);
 void free_kpages(vaddr_t addr);
 

@@ -37,7 +37,6 @@
 #include <addrspace.h>
 #include <vm.h>
 #include <proc.h>
-
 /*
  * Note! If OPT_DUMBVM is set, as is the case until you start the VM
  * assignment, this file is not compiled or linked or in any way
@@ -53,6 +52,19 @@ as_create(void)
 	if (as == NULL) {
 		return NULL;
 	}
+
+	as->page_table = kmalloc(sizeof(page_table_entry*) * PAGE_TABLE_SIZE);
+	if (as->page_table == NULL){
+		kfree(as);
+		return NULL;
+	}
+
+	as->as_vbase1 = 0;
+	as->as_npages1 = 0;
+	as->as_vbase2 = 0;
+	as->as_npages2 = 0;
+	as->as_stackpbase = 0;
+	bzero((void *)as->page_table, sizeof(page_table_entry*) * PAGE_TABLE_SIZE);
 
 	/*
 	 * Initialize as needed.
@@ -139,13 +151,88 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
 	 * Write this.
 	 */
 
-	(void)as;
-	(void)vaddr;
-	(void)sz;
 	(void)readable;
 	(void)writeable;
 	(void)executable;
+
+	size_t npages;
+
+	/* Align the region. First, the base... */
+	sz += vaddr & ~(vaddr_t)PAGE_FRAME;
+	vaddr &= PAGE_FRAME;
+
+	/* ...and now the length. */
+	sz = (sz + PAGE_SIZE - 1) & PAGE_FRAME;
+
+	npages = sz / PAGE_SIZE;
+
+	/* We don't use these - all pages are read-write */
+	(void)readable;
+	(void)writeable;
+	(void)executable;
+
+	if (as->as_vbase1 == 0) {
+		as->as_vbase1 = vaddr;
+		as->as_npages1 = npages;
+		return 0;
+	}
+
+	if (as->as_vbase2 == 0) {
+		as->as_vbase2 = vaddr;
+		as->as_npages2 = npages;
+		return 0;
+	}
+
+	/*
+	 * Support for more than two regions is not available.
+	 */
+	kprintf("dumbvm: Warning: too many regions\n");
+
 	return ENOSYS;
+}
+
+static
+int
+getppages(struct addrspace *as, vaddr_t vbase, size_t npage)
+{
+	vaddr_t addr;
+	int pt1;
+	int pt2;
+	int offset;
+
+	if (vbase > USERSTACK) {
+		return EFAULT;
+	}
+
+	pt1 = (int)PT1_INDEX(vbase);
+	pt2 = (int)PT2_INDEX(vbase);
+	offset = (int)PT_OFFSET(vbase);
+
+	/* Align vaddr to PAGE_SIZE */
+	// page_base = vbase / PAGE_SIZE;
+
+	if (as->page_table[pt1] == NULL) {
+		as->page_table[pt1] = kmalloc(sizeof(page_table_entry) * PAGE_TABLE_SIZE);
+		if (as->page_table[pt1] == NULL) {
+			return ENOMEM;
+		}
+	}
+
+	/* Store KV addr of page, additional info not included yet, TBD */
+	for(unsigned i = 0; i < npage; i++){
+		addr = alloc_kpages(1);
+		if (addr == 0) {
+			for(unsigned j = 0; j < i; j++){
+				free_kpages(as->page_table[pt1][pt2 + j]);
+				return ENOMEM;
+			}
+		}
+		as->page_table[pt1][pt2] = addr;
+		KASSERT(addr != 0);
+		bzero((void*)addr, PAGE_SIZE);
+	}
+
+	return 0;
 }
 
 int
@@ -154,8 +241,23 @@ as_prepare_load(struct addrspace *as)
 	/*
 	 * Write this.
 	 */
+	vaddr_t result;
 
-	(void)as;
+	result = getppages(as, as->as_vbase1, as->as_npages1);
+	if (result) {
+		return result;
+	}
+
+	result = getppages(as, as->as_vbase2, as->as_npages2);
+	if (result) {
+		return result;
+	}
+
+	result = getppages(as, USERSTACK - 1, 1);
+	if (result) {
+		return result;
+	}
+
 	return 0;
 }
 

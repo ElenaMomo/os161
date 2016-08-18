@@ -38,7 +38,14 @@
 #include <vm.h>
 #include "opt-dumbvm.h"
 
+#define PAGE_TABLE_SIZE 1024
+#define PT1_INDEX(vaddr) (vaddr >> 22)
+#define PT2_INDEX(vaddr) (vaddr << 10 >> 22)
+#define PT_OFFSET(vaddr) (vaddr << 20 >> 20)
+
 struct vnode;
+
+typedef uint32_t page_table_entry;
 
 
 /*
@@ -57,8 +64,16 @@ struct addrspace {
         paddr_t as_pbase2;
         size_t as_npages2;
         paddr_t as_stackpbase;
+
 #else
         /* Put stuff here for your VM system */
+        vaddr_t as_vbase1;
+        size_t as_npages1;
+        vaddr_t as_vbase2;
+        size_t as_npages2;
+        paddr_t as_stackpbase;
+        page_table_entry **page_table;
+
 #endif
 };
 

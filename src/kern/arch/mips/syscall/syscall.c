@@ -172,18 +172,18 @@ syscall(struct trapframe *tf)
 					   	   (int *)&retval);
 			break;
 
-		case SYS_remove:
-			err = sys_remove((char *)tf->tf_a0);
-			break;
+		// case SYS_remove:
+		// 	err = sys_remove((char *)tf->tf_a0);
+		// 	break;
 
-		case SYS_mkdir:
-			err = sys_mkdir((char *)tf->tf_a0,
-							(mode_t)tf->tf_a1);
-			break;
+		// case SYS_mkdir:
+		// 	err = sys_mkdir((char *)tf->tf_a0,
+		// 					(mode_t)tf->tf_a1);
+		// 	break;
 
-		case SYS_rmdir:
-			err = sys_rmdir((char *)tf->tf_a0);
-			break;
+		// case SYS_rmdir:
+		// 	err = sys_rmdir((char *)tf->tf_a0);
+		// 	break;
 
 		default:
 			kprintf("Unknown syscall %d\n", callno);

@@ -15,6 +15,7 @@
  * Put your function declarations and data types here ...
  */
 #include <synch.h>
+#include <uio.h>
 
 struct fdesc{
     struct vnode *vn;
@@ -61,6 +62,9 @@ int ftab_copy(struct fdesc **oldtab, struct fdesc **newtab);
  */
 
 int sys_open(const char *filename, int flags, int *fd);
+
+int sys_readwrite(int fd, void *buf, size_t size, enum uio_rw rw, 
+            int badaccmode, ssize_t *retval);
 
 int sys_write(int fd, void *buf, size_t size, ssize_t *written);
 

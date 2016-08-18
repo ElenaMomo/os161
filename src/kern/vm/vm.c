@@ -14,6 +14,7 @@ void vm_bootstrap(void)
     /* Initialise VM sub-system.  You probably want to initialise your 
        frame table here as well.
     */
+    frame_table_init();
 }
 
 int
@@ -23,6 +24,8 @@ vm_fault(int faulttype, vaddr_t faultaddress)
     (void) faultaddress;
 
     panic("vm_fault hasn't been written yet\n");
+
+    
 
     return EFAULT;
 }
@@ -42,5 +45,8 @@ vm_tlbshootdown(const struct tlbshootdown *ts)
 void
 vm_tlbshootdown_all(void)
 {
-    
+    // panic("vm tried to do tlb shootdown?!\n");
+    for(int i = 0; i < NUM_TLB; i++){
+        tlb_write(TLBHI_INVALID(0),TLBLO_INVALID(), i);
+    }
 }

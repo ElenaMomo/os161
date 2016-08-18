@@ -68,7 +68,8 @@ fd_decref(struct fdesc **fdesc)
 	}
 }
 
-void fd_incref(struct fdesc *fdesc){
+void fd_incref(struct fdesc *fdesc)
+{
 	fdesc->refcount++;
 	VOP_INCREF(fdesc->vn);
 }
@@ -88,25 +89,9 @@ ftab_init(struct fdesc **ftab)
 	struct stat stat;
 
 	/* Open console as stdin */
-	// result = vfs_open((char *)"con:", O_RDONLY, permflag, &vr);
-	// if (result) {
-	// 	return result;
-	// }
-
-
-	// result = fd_create(v, permflag, offset, &fd);
-	// if (result) {
-	// 	vfs_close(v);
-	// 	ftab_destroy(ftab);
-	// 	return result;
-	// }
-
-
-	/* Attach stdout/stderr to file table */
-	// result = ftab_set(*ftab, fd, 0, NULL);
 
 	/* Open console as stdout and stderr */
-	result = vfs_open((char *)"con:", O_WRONLY, permflag, &v);
+	result = vfs_open((char *)"con:", O_WRONLY || O_RDONLY, permflag, &v);
 	if (result) {
 		vfs_close(v);
 		return result;
@@ -146,16 +131,9 @@ ftab_add(struct fdesc **ftab, struct fdesc *fd, int *i)
 {
 	unsigned int index;
 	struct fdesc *tmpfd;
-	int result;
+	// int result;
 
-	for(index = 3; index < OPEN_MAX; index++){
-		result = ftab_get(ftab, index, &tmpfd);
-		if (result) {
-			return result;
-		}
-		if (tmpfd == NULL)
-			break;
-	}
+	for(index = 3; index < OPEN_MAX && ftab[index]; index++);
 	if(index >= OPEN_MAX)
 		return EMFILE;
 
@@ -168,7 +146,7 @@ ftab_add(struct fdesc **ftab, struct fdesc *fd, int *i)
 int
 ftab_get(struct fdesc **ftab, int index, struct fdesc **fd)
 {
-	if (index >= OPEN_MAX || ftab[index] == NULL) {
+	if (index >= OPEN_MAX) {
 		return EBADF;
 	}
 
@@ -232,7 +210,7 @@ sys_open(const char *filename, int flags, int *fd)
 	struct fdesc *fdes;
 	int result;
 	off_t off;
-	struct stat stat;
+	// struct stat stat;
 
 	if (!filename) {
 		return EFAULT;
@@ -250,15 +228,16 @@ sys_open(const char *filename, int flags, int *fd)
 	}
 
 	/* Set offset to end of file if O_APPEND is set */
-	if ( flags & O_APPEND) {	
-		result = VOP_STAT(v, &stat);
-		if (result) {
-			vfs_close(v);
-			return result;
-		}
-		off = stat.st_size;
-	}
-	else off = 0;
+	// if ( flags & O_APPEND) {
+	// 	result = VOP_STAT(v, &stat);
+	// 	if (result) {
+	// 		vfs_close(v);
+	// 		return result;
+	// 	}
+	// 	off = stat.st_size;
+	// }
+	// else off = 0;
+	off = 0;
 
 	/* Create file descriptor */
 	result = fd_create(v, flags, 0, &fdes);
@@ -278,46 +257,62 @@ sys_open(const char *filename, int flags, int *fd)
 	return 0;
 }
 
-int
-sys_write(int fd, void *buf, size_t size, ssize_t *written)
+int 
+sys_readwrite(int fd, void *buf, size_t size, enum uio_rw rw, 
+			int badaccmode, ssize_t *retval)
 {
 	struct fdesc *fdes;
 	struct iovec iov;
 	struct uio ku;
-	struct vnode *v;
-	volatile off_t foff;
+	off_t foff;
 	int result;
-
-	if (fd >= OPEN_MAX) {
-		return EBADF;
-	}
-	KASSERT(curthread->filtab != NULL);
 
 	result = ftab_get(curthread->filtab, fd, &fdes);
 	if (result) {
 		return result;
 	}
 
-	// if (!(fdes->flags & O_WRONLY)){
-	// 	return EBADF;
-	// }
-
 	lock_acquire(fdes->fd_lock);
-	v = fdes->vn;
-	foff = fdes->filoff;
+	result = VOP_ISSEEKABLE(fdes->vn);
+	if (result) {
+		foff = fdes->filoff;
+	}
+	else {
+		foff = 0;
+	}
 
-	uio_kinit(&iov, &ku, buf, size, foff, UIO_WRITE);
-	
-	result = VOP_WRITE(v, &ku);
-	if(result){
+	if (fdes->flags == badaccmode){
+		lock_release(fdes->fd_lock);
+		return EBADF;
+	}
+
+	uio_kinit(&iov, &ku, buf, size, foff, rw);
+
+	result = (rw == UIO_READ) ? 
+			VOP_READ(fdes->vn, &ku) :
+			VOP_WRITE(fdes->vn, &ku);
+	if (result) {
 		lock_release(fdes->fd_lock);
 		return result;
 	}
-	fdes->filoff += size;
+	fdes->filoff = ku.uio_offset;
+
 	lock_release(fdes->fd_lock);
-	*written = size - ku.uio_resid;
+
+	*retval = size - ku.uio_resid;
 
 	return 0;
+}
+int
+sys_write(int fd, void *buf, size_t size, ssize_t *written)
+{
+	return sys_readwrite(fd, buf, size, UIO_WRITE, O_RDONLY, written);
+}
+
+int
+sys_read(int fd, void *buf, size_t size, ssize_t *readsize)
+{
+	return sys_readwrite(fd, buf, size, UIO_READ, O_WRONLY, readsize);
 }
 
 int
@@ -338,33 +333,6 @@ sys_close(int fd)
 
 	VOP_DECREF(v);
 	ftab_remove(curthread->filtab, fd, NULL);
-	return 0;
-}
-
-int
-sys_read(int fd, void *buf, size_t size, ssize_t *readsize)
-{
-	struct fdesc *fdes;
-	struct iovec iov;
-	struct uio ku;
-	struct vnode *v;
-	off_t foff;
-	int result;
-
-	result = ftab_get(curthread->filtab, fd, &fdes);
-	if (result) {
-		return result;
-	}
-	v = fdes->vn;
-	foff = fdes->filoff;
-
-	uio_kinit(&iov, &ku, buf, size, foff, UIO_READ);
-	result = VOP_READ(v, &ku);
-	if(result){
-		return result;
-	}
-	*readsize = size - ku.uio_resid;
-
 	return 0;
 }
 
