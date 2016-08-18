@@ -63,7 +63,6 @@ as_create(void)
 	as->as_npages1 = 0;
 	as->as_vbase2 = 0;
 	as->as_npages2 = 0;
-	as->as_stackpbase = 0;
 	bzero((void *)as->page_table, sizeof(page_table_entry*) * PAGE_TABLE_SIZE);
 
 	/*
@@ -191,7 +190,6 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
 	return ENOSYS;
 }
 
-static
 int
 getppages(struct addrspace *as, vaddr_t vbase, size_t npage)
 {

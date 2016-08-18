@@ -45,7 +45,7 @@
 
 struct vnode;
 
-typedef uint32_t page_table_entry;
+typedef paddr_t page_table_entry;
 
 
 /*
@@ -71,7 +71,6 @@ struct addrspace {
         size_t as_npages1;
         vaddr_t as_vbase2;
         size_t as_npages2;
-        paddr_t as_stackpbase;
         page_table_entry **page_table;
 
 #endif
@@ -133,6 +132,7 @@ int               as_prepare_load(struct addrspace *as);
 int               as_complete_load(struct addrspace *as);
 int               as_define_stack(struct addrspace *as, vaddr_t *initstackptr);
 
+int               getppages(struct addrspace *as, vaddr_t vbase, size_t npage);
 
 /*
  * Functions in loadelf.c

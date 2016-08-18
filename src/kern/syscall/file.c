@@ -37,6 +37,7 @@ fd_create(struct vnode *v, int flag, off_t offset,
 	(*fd)->filoff = offset;
 	(*fd)->refcount = 1;
 	(*fd)->fd_lock = lock_create("fd lock");
+	KASSERT((*fd)->fd_lock);
 	return 0;
 }
 
@@ -91,7 +92,7 @@ ftab_init(struct fdesc **ftab)
 	/* Open console as stdin */
 
 	/* Open console as stdout and stderr */
-	result = vfs_open((char *)"con:", O_WRONLY || O_RDONLY, permflag, &v);
+	result = vfs_open((char *)"con:", O_WRONLY | O_RDONLY, permflag, &v);
 	if (result) {
 		vfs_close(v);
 		return result;
@@ -106,6 +107,12 @@ ftab_init(struct fdesc **ftab)
 	result = fd_create(v, permflag, offset, &fd);
 	if (result) {
 		vfs_close(v);
+		return result;
+	}
+
+	result = ftab_set(ftab, fd, 0, NULL);
+	if (result) {
+		fd_destroy(fd);
 		return result;
 	}
 
